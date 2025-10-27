@@ -1,0 +1,81 @@
+<!--
+Dogzilla: Online Multiplayer (Room Code) - Full gameplay prototype
+Files contained below: index.html, style.css, script.js
+
+INSTRUCTIONS:
+1) Copy each section into separate files named index.html, style.css, script.js in your project (or upload to GitHub).
+2) In script.js replace the firebaseConfig placeholder with your actual Firebase config object.
+3) In your Firebase Realtime Database rules (for testing) you can allow simple read/write, but secure it before public use.
+   Example (testing only):
+   {
+     "rules": {
+       ".read": true,
+       ".write": true
+     }
+   }
+4) Open index.html in a browser (host on GitHub Pages / Netlify / Vercel or run locally). Two players: create a room, share code, second player joins.
+
+NOTE: Do NOT commit your real firebase keys publicly if you don't want others accessing your DB.
+-->
+
+<!-- ========================= index.html ========================= -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dogzilla — Online</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase SDKs (Realtime DB + Auth optional) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Dogzilla — Online</h1>
+      <div id="room-controls">
+        <input id="nameInput" placeholder="Your name" />
+        <button id="createRoomBtn">Create Room</button>
+        <input id="roomCodeInput" placeholder="Room code" />
+        <button id="joinRoomBtn">Join Room</button>
+      </div>
+      <div id="roomInfo" class="hidden">
+        <span>Room: <b id="roomCodeDisplay"></b></span>
+        <span>Player: <b id="playerIdDisplay"></b></span>
+        <button id="leaveBtn">Leave</button>
+      </div>
+    </header>
+
+    <main id="gameArea" class="hidden">
+      <section id="opponentArea">
+        <h2 id="opponentName">Opponent</h2>
+        <div id="opponentHand" class="hand hidden"></div>
+      </section>
+
+      <section id="centerArea">
+        <div id="deckZone">
+          <div id="deck" title="Deck">Deck<br><span id="deckCount">0</span></div>
+          <div id="discard" title="Discard">Discard<br><span id="discardTop">—</span></div>
+        </div>
+        <div id="status">Waiting...</div>
+      </section>
+
+      <section id="yourArea">
+        <h2 id="yourName">You</h2>
+        <div id="yourHand" class="hand"></div>
+        <div id="controls">
+          <button id="drawBtn">Draw (ends turn)</button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <small>Tip: Click cards to play them. Combos auto-check for pairs. "Nope" has a 1.5s interrupt window.</small>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
