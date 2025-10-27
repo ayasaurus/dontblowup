@@ -24,7 +24,7 @@ NOTE: Do NOT commit your real firebase keys publicly if you don't want others ac
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DontBlowup — Online</title>
+  <title>DontBlowUp — Online</title>
   <link rel="stylesheet" href="style.css">
   <!-- Firebase SDKs (Realtime DB + Auth optional) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -33,7 +33,7 @@ NOTE: Do NOT commit your real firebase keys publicly if you don't want others ac
 <body>
   <div id="app">
     <header>
-      <h1>DontBlowup</h1>
+      <h1>DontBlowUp</h1>
       <div id="room-controls">
         <input id="nameInput" placeholder="Your name" />
         <button id="createRoomBtn">Create Room</button>
@@ -44,6 +44,7 @@ NOTE: Do NOT commit your real firebase keys publicly if you don't want others ac
         <span>Room: <b id="roomCodeDisplay"></b></span>
         <span>Player: <b id="playerIdDisplay"></b></span>
         <button id="leaveBtn">Leave</button>
+        <button id="restartBtn">Restart</button>
       </div>
     </header>
 
@@ -51,14 +52,18 @@ NOTE: Do NOT commit your real firebase keys publicly if you don't want others ac
       <section id="opponentArea">
         <h2 id="opponentName">Opponent</h2>
         <div id="opponentHand" class="hand hidden"></div>
+<div id="futureCards"></div>
+
       </section>
 
       <section id="centerArea">
+        <div id="nopeIndicator" style="display:none;color:red;font-weight:bold;margin-bottom:8px;text-align:center;">Opponent can play NOPE!</div>
         <div id="deckZone">
           <div id="deck" title="Deck">Deck<br><span id="deckCount">0</span></div>
           <div id="discard" title="Discard">Discard<br><span id="discardTop">—</span></div>
         </div>
         <div id="status">Waiting...</div>
+        <div id="toast" class="hidden" aria-live="polite"></div>
       </section>
 
       <section id="yourArea">
@@ -70,6 +75,14 @@ NOTE: Do NOT commit your real firebase keys publicly if you don't want others ac
       </section>
     </main>
 
+  </div>
+
+  <!-- Rotate notice for phones: prompt user to turn device to landscape for best experience -->
+  <div id="rotateNotice" class="hidden" aria-live="polite">
+    <div class="rotate-inner">
+      <h2>Please rotate your device</h2>
+      <p>This game is best played in landscape (turn your phone sideways).</p>
+    </div>
   </div>
 
   <script src="script.js"></script>
