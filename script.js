@@ -15,7 +15,7 @@ const firebaseConfig = {
 };
 
 // Deck constants (tweak if you want different counts)
-const COMBO_NAMES = ['dogzilla','barknado','pupcake','chewbacca','pawsassiom'];
+const COMBO_NAMES = ['dogzilla','barknado','pupcake','chewbacca','pupsassion'];
 const ACTION_NAMES = ['nope','skip','attack','favour','future','shuffle'];
 const COUNT_EACH_COMBO = 4;
 const COUNT_EACH_ACTION = 4;
