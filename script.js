@@ -75,42 +75,58 @@ function buildDeck(){
 function popAt(arr, index){if(index<0||index>=arr.length) return null; return arr.splice(index,1)[0]}
 
 // ===== Firebase room lifecycle =====
-createRoomBtn.onclick = async ()=>{
+createRoomBtn.onclick = async () => {
   localName = nameInput.value.trim() || 'Player';
   const code = randId(5);
   roomCode = code;
-  const deck = buildDeck();
 
-  // initial hands: deal each player 1 defusal and 6 random cards from deck (excluding the dealt defusal)
-  // We'll give each player one defusal from defusal cards if available, else from deck
-  const p1 = {name: localName, hand: [], defusals:0};
-  const p2 = {name: 'Waiting...', hand: [], defusals:0};
+  let deck = buildDeck();
 
-  // take out defusals for starting hands
-  function takeAndRemoveCard(deck, predicate){
+  // === Remove bombs from initial dealing ===
+  const bombs = deck.filter(c => c.type === 'bomb');
+  deck = deck.filter(c => c.type !== 'bomb');
+
+  // === Initial hands ===
+  const p1 = { name: localName, hand: [], defusals: 0 };
+  const p2 = { name: 'Waiting...', hand: [], defusals: 0 };
+
+  function takeAndRemoveCard(deck, predicate) {
     const idx = deck.findIndex(predicate);
-    if(idx==-1) return null;
+    if (idx === -1) return null;
     return popAt(deck, idx);
   }
 
-  // give each player 1 defusal if available
-  let c = takeAndRemoveCard(deck, c=>c.type==='defusal'); if(c){p1.defusals++;}
-  c = takeAndRemoveCard(deck, c=>c.type==='defusal'); if(c){/* for p2 later when joined */}
+  // Give each player 1 defusal
+  let defusalCard = takeAndRemoveCard(deck, c => c.type === 'defusal');
+  if (defusalCard) p1.defusals++;
+  defusalCard = takeAndRemoveCard(deck, c => c.type === 'defusal');
+  // We'll give this to p2 when they join
 
-  // deal 6 cards to p1 (not including defusal already taken)
-  for(let i=0;i<6;i++){p1.hand.push(popAt(deck,0));}
+  // Deal 6 random non-bomb cards to p1
+  for (let i = 0; i < 6; i++) {
+    p1.hand.push(popAt(deck, 0));
+  }
+
+  // Restore bombs to deck and shuffle
+  deck = shuffle(deck.concat(bombs));
 
   const initialState = {
     createdAt: Date.now(),
-    players: {p1, p2},
-    deck, discard: [], turn: 'p1', started:false,
-    waitingForJoin:true,
+    players: { p1, p2 },
+    deck,
+    discard: [],
+    turn: 'p1',
+    started: false,
+    waitingForJoin: true,
     pendingAction: null
   };
 
-  await db.ref('rooms/'+code).set(initialState);
+  await db.ref('rooms/' + code).set(initialState);
+
+  // Now join the room as creator
   joinRoom(code, true);
-}
+};
+
 
 joinRoomBtn.onclick = ()=>{const code = (roomCodeInput.value||'').trim().toUpperCase(); if(!code)return alert('Enter room code'); joinRoom(code,false)}
 
@@ -136,25 +152,31 @@ async function joinRoom(code, isCreator){
   await roomRef.child('players').child(localPlayerId).child('name').set(localName);
 
   // if joining as p2 and game hasn't started, finalize dealing p2's defusal & 6 cards
-  if(!isCreator){
-    const snap = await roomRef.once('value');
-    const state = snap.val();
-    let deck = state.deck || [];
+  if (!isCreator) {
+  const snap = await roomRef.once('value');
+  const state = snap.val();
+  let deck = state.deck || [];
 
-    // take a defusal for p2 if present
-    const idx = deck.findIndex(c=>c && c.type==='defusal');
-    if(idx!==-1){popAt(deck, idx);}
-    const p2hand = [];
-    for(let i=0;i<6;i++){p2hand.push(popAt(deck,0));}
+  // Give 1 defusal if available
+  const idxDef = deck.findIndex(c => c.type === 'defusal');
+  if (idxDef !== -1) popAt(deck, idxDef);
 
-    // update p2 in db
-    await roomRef.update({
-      'players/p2/hand': p2hand,
-      'deck': deck,
-      'waitingForJoin': false,
-      'started': true
-    });
+  const p2hand = [];
+  for (let i = 0; i < 6; i++) {
+    // Skip bombs during initial deal
+    let idxCard = deck.findIndex(c => c.type !== 'bomb');
+    if (idxCard === -1) idxCard = 0; // fallback
+    p2hand.push(popAt(deck, idxCard));
   }
+
+  await roomRef.update({
+    'players/p2/hand': p2hand,
+    'deck': deck,
+    'waitingForJoin': false,
+    'started': true
+  });
+}
+
 
   // attach listener to room
   if(unsub) unsub();
@@ -490,41 +512,58 @@ async function giveCardToPlayer(targetPlayerId, cardIdx){
 }
 
 // Draw card (ends your turn). Handles bombs and defusals and nextDrawExtra
-async function drawCard(){
-  await transactRoom(state=>{
-    if(state.turn !== localPlayerId) return state;
+async function drawCard() {
+  await transactRoom(state => {
+    if (state.turn !== localPlayerId) return state;
+
     const deck = state.deck || [];
     const p = state.players[localPlayerId];
-    let draws = 1 + (state.nextDrawExtra||0);
+    let draws = 1 + (state.nextDrawExtra || 0);
     state.nextDrawExtra = 0;
-    for(let d=0; d<draws; d++){
-      if(deck.length===0) continue;
+
+    for (let d = 0; d < draws; d++) {
+      if (deck.length === 0) continue;
+
       const card = deck.shift();
-      if(card.type === 'bomb'){
-        // if player has defusal, consume one and put bomb back randomly
-        if(p.defusals && p.defusals>0){ p.defusals--; // place bomb back at random position
-          const pos = Math.floor(Math.random()*(deck.length+1));
-          deck.splice(pos,0,{type:'bomb',name:'bomb'});
-          state.discard = state.discard||[]; state.discard.push({system:'defused',by:localPlayerId});
+
+      if (card.type === 'bomb') {
+        if (p.defusals && p.defusals > 0) {
+          p.defusals--;
+          const pos = Math.floor(Math.random() * (deck.length + 1));
+          deck.splice(pos, 0, { type: 'bomb', name: 'bomb' });
+          state.discard = state.discard || [];
+          state.discard.push({ system: 'defused', by: localPlayerId, card: 'bomb' });
+          // show popup for defusal
+          statusDiv.textContent = 'You picked up a Bomb, but auto-used a Defusal!';
         } else {
-          // player loses — mark game over
-          state.players[localPlayerId].lost = true;
-          state.discard = state.discard||[]; state.discard.push({system:'exploded',by:localPlayerId});
+          p.lost = true;
+          state.discard = state.discard || [];
+          state.discard.push({ system: 'exploded', by: localPlayerId, card: 'bomb' });
+          // show popup for explosion
+          statusDiv.textContent = 'You picked up a Bomb and exploded! 💥';
         }
-      } else if(card.type === 'defusal'){
-        // count defusal in player's inventory
-        p.defusals = (p.defusals||0) + 1;
+      } else if (card.type === 'defusal') {
+        p.defusals = (p.defusals || 0) + 1;
+        state.discard = state.discard || [];
+        state.discard.push({ system: 'draw', by: localPlayerId, card: 'defusal' });
+        statusDiv.textContent = 'You picked up a Defusal card.';
       } else {
         p.hand.push(card);
+        state.discard = state.discard || [];
+        state.discard.push({ system: 'draw', by: localPlayerId, card: card.name });
+        statusDiv.textContent = `You drew a ${card.name} card.`;
       }
     }
-    // after drawing, pass turn to other if not lost
-    if(!state.players[localPlayerId].lost){ state.turn = (localPlayerId==='p1'?'p2':'p1'); }
-    // remove peek data older than 3s
-    if(state.peek && Date.now()-state.peek.ts>3000) delete state.peek;
+
+    if (!p.lost) state.turn = (localPlayerId === 'p1' ? 'p2' : 'p1');
+
+    if (state.peek && Date.now() - state.peek.ts > 3000) delete state.peek;
+
     return state;
   });
 }
+
+
 
 // Draw button
 drawBtn.onclick = async ()=>{
